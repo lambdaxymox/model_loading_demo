@@ -1,0 +1,17 @@
+[package]
+name = "teapot_around_jupiter"
+version = "0.1.0"
+authors = ["LambdaXymox <lambda.xymox@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+glfw = "0.39.1"
+image = "0.23.9"
+log = "0.4.11"
+file_logger = { git = "https://github.com/lambdaxymox/file-logger" }
+cglinalg = { git = "https://github.com/lambdaxymox/cglinalg" }
+cgperspective = { git = "https://github.com/lambdaxymox/cgperspective" }
+mini_obj = { git = "https://github.com/lambdaxymox/mini_obj" }
+
+[build-dependencies]
+gl_generator = "0.14.0"
