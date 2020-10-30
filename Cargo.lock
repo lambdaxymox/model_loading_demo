@@ -385,6 +385,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "model_loading_demo"
+version = "0.1.0"
+dependencies = [
+ "cglinalg",
+ "cgperspective",
+ "file_logger",
+ "gl_generator",
+ "glfw",
+ "image",
+ "log",
+ "mini_obj",
+]
+
+[[package]]
 name = "num-integer"
 version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -610,20 +624,6 @@ name = "semver-parser"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
-
-[[package]]
-name = "teapot_around_jupiter"
-version = "0.1.0"
-dependencies = [
- "cglinalg",
- "cgperspective",
- "file_logger",
- "gl_generator",
- "glfw",
- "image",
- "log",
- "mini_obj",
-]
 
 [[package]]
 name = "thread_local"

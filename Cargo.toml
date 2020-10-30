@@ -1,5 +1,5 @@
 [package]
-name = "teapot_around_jupiter"
+name = "model_loading_demo"
 version = "0.1.0"
 authors = ["LambdaXymox <lambda.xymox@gmail.com>"]
 edition = "2018"
