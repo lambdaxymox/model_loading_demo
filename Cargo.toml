@@ -13,6 +13,7 @@ cglinalg = { git = "https://github.com/lambdaxymox/cglinalg" }
 cgperspective = { git = "https://github.com/lambdaxymox/cgperspective" }
 mini_obj = { git = "https://github.com/lambdaxymox/mini_obj" }
 zip = "0.5.8"
+wavefront_obj = "8.0.0"
 
 [build-dependencies]
 gl_generator = "0.14.0"

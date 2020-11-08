@@ -17,6 +17,7 @@ mod light;
 mod material;
 mod lighting_map;
 mod texture;
+mod model;
 
 
 use material::{

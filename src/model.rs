@@ -1,88 +1,150 @@
-use crate::mesh::{
-    Mesh,
-    Texture,
+use cglinalg::{
+    Vector2,
+    Vector3,
+};
+use wavefront_obj::obj;
+use wavefront_obj::mtl;
+use crate::texture;
+use crate::texture::{
+    TextureImage2D,
+};
+use std::collections::HashMap;
+use std::error::Error;
+use std::io;
+use std::io::{
+    Read,
 };
 
 
-pub fn load_string(data: &str) -> Model {
-
+#[repr(C)]
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Vertex {
+    position: Vector3<f32>,
+    normal: Vector3<f32>,
+    tex_coords: Vector2<f32>,
+    tangent: Vector3<f32>,
+    bitangent: Vector3<f32>,
 }
 
-struct Model {
-    textures_loaded: Vec<Texture>,
+impl Vertex {
+    pub fn zero() -> Vertex {
+        Vertex {
+            position: Vector3::zero(),
+            normal: Vector3::zero(),
+            tex_coords: Vector2::zero(),
+            tangent: Vector3::zero(),
+            bitangent: Vector3::zero(),
+        }
+    }
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum TextureKind {
+    Diffuse,
+    Specular,
+    Normal,
+    Height,
+    Emission,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct TextureID {
+    id: u32,
+}
+
+#[derive(Clone)]
+pub struct Texture {
+    kind: TextureKind,
+    name: String,
+    data: TextureImage2D,
+}
+
+
+#[derive(Clone, Debug)]
+pub struct Mesh {
+    vertices: Vec<Vertex>,
+    indices: Vec<u32>,
+    textures: Vec<TextureID>,
+}
+
+impl Mesh {
+    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>, textures: Vec<TextureID>) -> Mesh {
+        Mesh {
+            vertices: vertices,
+            indices: indices,
+            textures: textures,
+        }
+    }
+}
+
+pub struct Model {
+    textures_loaded: HashMap<TextureID, Texture>,
     meshes: Vec<Mesh>,
-    directory: Option<String>,
+    name: String,
     gamma_correction: bool,
 }
 
-impl Model {
-    fn new() -> Model {
-        Model {
-            textures_loaded: vec![],
-            meshes: vec![],
-            director: None,
-            gamma_correction: false,
-        }
-    }
+pub struct ModelLoadError {
+    error: Box<dyn Error>,
 }
 
-struct ModelBuilder {
-    model: Model,
-    directory: Option<String>,
-    gamma_correction: Option<bool>,
-}
-
-impl ModelBuilder {
-    pub fn new() -> ModelBuilder {
-        ModelBuilder {
-            model: Model::new(),
-            directory: None,
-            gamma_correction: None,
+pub fn load_from_memory(buffer: &[u8]) -> Result<Model, ModelLoadError> {
+    let mut reader = io::Cursor::new(buffer);
+    let mut zip_archive = zip::ZipArchive::new(reader).map_err(|e| {
+        ModelLoadError {
+            error: Box::new(e),
         }
-    }
-
-    pub fn with_directory(&mut self, directory: &str) {
-        self.directory = Some(String::from(directory));
-    }
-
-    pub fn with_gamma_correction(&mut self, gamma_correction: bool) {
-        self.gamma_correction = Some(gamma_correction);
-    }
-
-    fn process_node(&mut self, node: &assimp::Node, scene: &assimp::Scene) {
-        
-    }
-
-    pub fn with_model(&mut self, data: &str) {
-        fn smooth_normals() -> assimp::GenerateNormals {
-            assimp::GenerateNormals {
-                enable: true,
-                smooth: true,
-                max_smoothing_angle: 175.0,
+    })?;
+    let obj_set = {
+        let obj_file_names = zip_archive
+            .file_names()
+            .filter(|file_name| { file_name.ends_with(".obj") })
+            .collect::<Vec<&str>>();
+        let obj_file_name = String::from(obj_file_names[0]);
+        let mut obj_file = zip_archive.by_name(&obj_file_name).map_err(|e| {
+            ModelLoadError {
+                error: Box::new(e),
             }
-        }
-
-        fn calc_tangent_space_args() -> assimp::CalcTangentSpace {
-            assimp::CalcTangentSpace {
-                enable: true,
-                max_smoothing_angle: 45.0,
-                texture_channel: 0,
+        })?;
+        let mut obj_buffer = String::new();
+        obj_file.read_to_string(&mut obj_buffer).map_err(|e| {
+            ModelLoadError {
+                error: Box::new(e),
             }
-        }
+        })?;
+        let obj_set = obj::parse(&obj_buffer).map_err(|e| {
+            ModelLoadError {
+                error: Box::new(e),
+            }
+        })?;
 
-        let mut importer = assimp::Importer::new();
-        let possible_scene = importer
-            .triangulate(true)
-            .generate_normals(smooth_normals())
-            .flip_uvs(true)
-            .calc_tangent_space(calc_tangent_space_args())
-            .read_string(data);
+        obj_set
+    };
+    let mtl_set = {
+        let mtl_file_names = zip_archive
+            .file_names()
+            .filter(|file_name| { file_name.ends_with(".mtl") })
+            .collect::<Vec<&str>>();
+        let mtl_file_name = String::from(mtl_file_names[0]);
+        let mut mtl_file = zip_archive.by_name(&mtl_file_name).map_err(|e| {
+            ModelLoadError {
+                error: Box::new(e),
+            }
+        })?;
+        let mut mtl_buffer = String::new();
+        mtl_file.read_to_string(&mut mtl_buffer).map_err(|e| {
+            ModelLoadError {
+                error: Box::new(e),
+            }
+        })?;
+        let mtl_set = mtl::parse(&mtl_buffer).map_err(|e| {
+            ModelLoadError {
+                error: Box::new(e),
+            }
+        })?;
 
-        if let Ok(scene) = possible_scene {
-            self.process_node(&scene.root_node(), &scene);
-        } else {
-            panic!("Could not parse scene");
-        }
-    }
+        mtl_set
+    };
+    unimplemented!();
 }
 
