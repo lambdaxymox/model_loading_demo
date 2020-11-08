@@ -12,7 +12,7 @@ file_logger = { git = "https://github.com/lambdaxymox/file-logger" }
 cglinalg = { git = "https://github.com/lambdaxymox/cglinalg" }
 cgperspective = { git = "https://github.com/lambdaxymox/cgperspective" }
 mini_obj = { git = "https://github.com/lambdaxymox/mini_obj" }
-assimp = "0.3.1"
+zip = "0.5.8"
 
 [build-dependencies]
 gl_generator = "0.14.0"

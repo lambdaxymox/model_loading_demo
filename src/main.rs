@@ -5,7 +5,6 @@ extern crate image;
 extern crate log;
 extern crate file_logger;
 extern crate mini_obj;
-extern crate assimp;
 
 
 mod gl {
@@ -17,6 +16,7 @@ mod camera;
 mod light;
 mod material;
 mod lighting_map;
+mod texture;
 
 
 use material::{
