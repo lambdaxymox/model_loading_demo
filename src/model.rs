@@ -3,10 +3,6 @@ use cglinalg::{
     Vector3,
 };
 use wavefront_obj::obj;
-use wavefront_obj::obj::{
-    Element,
-    VTNTriple,
-};
 use wavefront_obj::mtl;
 use crate::texture;
 use crate::texture::{
@@ -149,7 +145,7 @@ fn load_mesh_vertices(object: &obj::Object) -> Vec<Vertex> {
     let mut vertices = vec![];
     for element in object.element_set.iter() {
         match element {
-            Element::Face(vtn1, vtn2, vtn3) => {
+            obj::Element::Face(vtn1, vtn2, vtn3) => {
                 let triples = [
                     object.get_vtn_triple(*vtn1).unwrap(),
                     object.get_vtn_triple(*vtn2).unwrap(),
@@ -158,7 +154,7 @@ fn load_mesh_vertices(object: &obj::Object) -> Vec<Vertex> {
                 
                 for triple in triples.iter() {
                     match triple {
-                        VTNTriple::V(vp) => {
+                        obj::VTNTriple::V(vp) => {
                             vertices.push(Vertex {
                                 position: Vector3::new(vp.x as f32, vp.y as f32, vp.z as f32),
                                 normal: Vector3::zero(),
@@ -167,7 +163,7 @@ fn load_mesh_vertices(object: &obj::Object) -> Vec<Vertex> {
                                 bitangent: Vector3::zero(),
                             });
                         }
-                        VTNTriple::VT(vp, vt) => {
+                        obj::VTNTriple::VT(vp, vt) => {
                             vertices.push(Vertex {
                                 position: Vector3::new(vp.x as f32, vp.y as f32, vp.z as f32),
                                 normal: Vector3::zero(),
@@ -176,7 +172,7 @@ fn load_mesh_vertices(object: &obj::Object) -> Vec<Vertex> {
                                 bitangent: Vector3::zero(),
                             });
                         }
-                        VTNTriple::VN(vp, vn) => {
+                        obj::VTNTriple::VN(vp, vn) => {
                             vertices.push(Vertex {
                                 position: Vector3::new(vp.x as f32, vp.y as f32, vp.z as f32),
                                 normal: Vector3::new(vn.x as f32, vn.y as f32, vn.z as f32),
@@ -185,7 +181,7 @@ fn load_mesh_vertices(object: &obj::Object) -> Vec<Vertex> {
                                 bitangent: Vector3::zero(),
                             });
                         }
-                        VTNTriple::VTN(vp, vt, vn) => {
+                        obj::VTNTriple::VTN(vp, vt, vn) => {
                             vertices.push(Vertex {
                                 position: Vector3::new(vp.x as f32, vp.y as f32, vp.z as f32),
                                 normal: Vector3::new(vn.x as f32, vn.y as f32, vn.z as f32),

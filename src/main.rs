@@ -15,15 +15,11 @@ mod gl {
 mod backend;
 mod camera;
 mod light;
-mod material;
 mod lighting_map;
 mod texture;
 mod model;
 
 
-use material::{
-    Material,
-};
 use cglinalg::{
     Angle,
     Degrees,
