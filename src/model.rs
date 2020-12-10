@@ -37,18 +37,6 @@ pub struct Vertex {
     bitangent: Vector3<f32>,
 }
 
-impl Vertex {
-    pub fn zero() -> Vertex {
-        Vertex {
-            position: Vector3::zero(),
-            normal: Vector3::zero(),
-            tex_coords: Vector2::zero(),
-            tangent: Vector3::zero(),
-            bitangent: Vector3::zero(),
-        }
-    }
-}
-
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TextureKind {
     Ambient,
