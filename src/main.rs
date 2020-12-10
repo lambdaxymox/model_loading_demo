@@ -4,6 +4,7 @@ extern crate cgperspective;
 extern crate image;
 extern crate log;
 extern crate file_logger;
+extern crate wavefront_obj;
 extern crate mini_obj;
 
 
@@ -130,21 +131,6 @@ fn create_box_mesh() -> ObjMesh {
     ];
 
     ObjMesh::new(points, tex_coords, normals)
-}
-
-fn create_box_positions() -> Vec<Vector3<f32>> {
-    vec![
-        Vector3::new( 0.0,  0.0,  0.0),
-        Vector3::new( 2.0,  5.0, -15.0),
-        Vector3::new(-1.5, -2.2, -2.5),
-        Vector3::new(-3.8, -2.0, -12.3),
-        Vector3::new( 2.4, -0.4, -3.5),
-        Vector3::new(-1.7,  3.0, -7.5),
-        Vector3::new( 1.3, -2.0, -2.5),
-        Vector3::new( 1.5,  2.0, -2.5),
-        Vector3::new( 1.5,  0.2, -1.5),
-        Vector3::new(-1.3,  1.0, -1.5)
-    ]
 }
 
 fn create_box_model_matrices(box_positions: &[Vector3<f32>]) -> Vec<Matrix4<f32>> {
@@ -276,263 +262,6 @@ fn create_directional_light() -> DirLight<f32> {
     let specular = Vector3::new(0.5, 0.5, 0.5);
 
     DirLight::new(direction, ambient, diffuse, specular)
-}
-
-fn create_spotlight(camera: &PerspectiveFovCamera<f32>) -> SpotLight<f32> {
-    let position = camera.position();
-    let direction = camera.forward_axis();
-    let ambient = Vector3::new(0.0, 0.0, 0.0);
-    let diffuse = Vector3::new(1.0, 1.0, 1.0);
-    let specular = Vector3::new(1.0, 1.0, 1.0);
-    let constant = 1.0;
-    let linear = 0.09;
-    let quadratic = 0.032;
-    let cutoff = Degrees(12.5).cos();
-    let outer_cutoff = Degrees(15.0).cos();
-
-    SpotLight::new(
-        position,
-        direction,
-        cutoff,
-        outer_cutoff,
-        constant,
-        linear,
-        quadratic,
-        ambient,
-        diffuse,
-        specular
-    )
-}
-
-fn create_lighting_map() -> LightingMap {
-    let diffuse_buffer = include_bytes!("../assets/container2_diffuse.png");
-    let specular_buffer = include_bytes!("../assets/container2_specular.png");
-    let emission_buffer = include_bytes!("../assets/container2_emission.png");
-    
-    lighting_map::load_lighting_map(diffuse_buffer, specular_buffer, emission_buffer)
-}
-
-fn send_to_gpu_uniforms_cube_light_mesh(shader: ShaderHandle, model_mat: &Matrix4<f32>) {
-    shader.use_program();
-    shader.set_mat4("model", model_mat);
-}
-
-fn send_to_gpu_uniforms_camera(shader: ShaderHandle, camera: &PerspectiveFovCamera<f32>) {
-    shader.use_program();
-    shader.set_mat4("camera.projection", &camera.projection());
-    shader.set_mat4("camera.view", camera.view_matrix());    
-}
-
-fn send_to_gpu_uniforms_dir_light(shader: ShaderHandle, light: &DirLight<f32>) {
-    shader.use_program();
-    shader.set_vec3("dirLight.direction", &light.direction);
-    shader.set_vec3("dirLight.ambient", &light.ambient);
-    shader.set_vec3("dirLight.diffuse", &light.diffuse);
-    shader.set_vec3("dirLight.specular", &light.specular);
-}
-
-/// Send the uniforms for the lighting data to the GPU for the mesh.
-/// Note that in order to render multiple lights in the shader, we define an 
-/// array of structs. In OpenGL, each elementary member of a struct is 
-/// considered to be a uniform variable, and each struct is a struct of uniforms. 
-/// Consequently, if every element of an array of struct uniforms is not used in 
-/// the shader, OpenGL will optimize those uniform locations out at runtime. This
-/// will cause OpenGL to return a `GL_INVALID_VALUE` on a call to 
-/// `glGetUniformLocation`.
-fn send_to_gpu_uniforms_point_lights(shader: ShaderHandle, lights: &[PointLight<f32>; 4]) {
-    shader.use_program();
-
-    shader.set_vec3("pointLights[0].position", &lights[0].position);
-    shader.set_float("pointLights[0].constant", lights[0].constant);
-    shader.set_float("pointLights[0].linear", lights[0].linear);
-    shader.set_float("pointLights[0].quadratic", lights[0].quadratic);
-    shader.set_vec3("pointLights[0].ambient", &lights[0].ambient);
-    shader.set_vec3("pointLights[0].diffuse", &lights[0].diffuse);
-    shader.set_vec3("pointLights[0].specular", &lights[0].specular);
-
-    shader.set_vec3("pointLights[1].position", &lights[1].position);
-    shader.set_float("pointLights[1].constant", lights[1].constant);
-    shader.set_float("pointLights[1].linear", lights[1].linear);
-    shader.set_float("pointLights[1].quadratic", lights[1].quadratic);
-    shader.set_vec3("pointLights[1].ambient", &lights[1].ambient);
-    shader.set_vec3("pointLights[1].diffuse", &lights[1].diffuse);
-    shader.set_vec3("pointLights[1].specular", &lights[1].specular);
-
-    shader.set_vec3("pointLights[2].position", &lights[2].position);
-    shader.set_float("pointLights[2].constant", lights[2].constant);
-    shader.set_float("pointLights[2].linear", lights[2].linear);
-    shader.set_float("pointLights[2].quadratic", lights[2].quadratic);
-    shader.set_vec3("pointLights[2].ambient", &lights[2].ambient);
-    shader.set_vec3("pointLights[2].diffuse", &lights[2].diffuse);
-    shader.set_vec3("pointLights[2].specular", &lights[2].specular);
-
-    shader.set_vec3("pointLights[3].position", &lights[3].position);
-    shader.set_float("pointLights[3].constant", lights[3].constant);
-    shader.set_float("pointLights[3].linear", lights[3].linear);
-    shader.set_float("pointLights[3].quadratic", lights[3].quadratic);
-    shader.set_vec3("pointLights[3].ambient", &lights[3].ambient);
-    shader.set_vec3("pointLights[3].diffuse", &lights[3].diffuse);
-    shader.set_vec3("pointLights[3].specular", &lights[3].specular);
-}
-
-/// Send the uniforms for the lighting data to the GPU for the mesh.
-/// Note that in order to render multiple lights in the shader, we define an 
-/// array of structs. In OpenGL, each elementary member of a struct is 
-/// considered to be a uniform variable, and each struct is a struct of uniforms. 
-/// Consequently, if every element of an array of struct uniforms is not used in 
-/// the shader, OpenGL will optimize those uniform locations out at runtime. This
-/// will cause OpenGL to return a `GL_INVALID_VALUE` on a call to 
-/// `glGetUniformLocation`.
-fn send_to_gpu_uniforms_spotlight(shader: ShaderHandle, light: &SpotLight<f32>) {
-    shader.use_program();
-    shader.set_vec3("spotLight.position", &light.position);
-    shader.set_vec3("spotLight.direction", &light.direction);
-    shader.set_float("spotLight.cutOff", light.cutoff);
-    shader.set_float("spotLight.outerCutOff", light.outer_cutoff);
-    shader.set_vec3("spotLight.ambient", &light.ambient);
-    shader.set_vec3("spotLight.diffuse", &light.diffuse);
-    shader.set_vec3("spotLight.specular", &light.specular);
-    shader.set_float("spotLight.constant", light.constant);
-    shader.set_float("spotLight.linear", light.linear);
-    shader.set_float("spotLight.quadratic", light.quadratic);
-}
-
-fn send_to_gpu_textures_material(lighting_map: &LightingMap) -> (GLuint, GLuint, GLuint) {
-    let diffuse_tex = backend::send_to_gpu_texture(&lighting_map.diffuse, gl::REPEAT).unwrap();
-    let specular_tex = backend::send_to_gpu_texture(&lighting_map.specular, gl::REPEAT).unwrap();
-    let emission_tex = backend::send_to_gpu_texture(&lighting_map.emission, gl::REPEAT).unwrap();
-
-    (diffuse_tex, specular_tex, emission_tex)
-}
-
-#[derive(Copy, Clone)]
-struct MaterialUniforms<'a> {
-    diffuse_index: i32,
-    specular_index: i32,
-    emission_index: i32,
-    material: &'a Material<f32>,
-}
-
-impl<'a> MaterialUniforms<'a> {
-    fn new(
-        diffuse_index: i32,
-        specular_index: i32,
-        emission_index: i32,
-        material: &'a Material<f32>) -> Self
-    {
-        Self {
-            diffuse_index: diffuse_index,
-            specular_index: specular_index,
-            emission_index: emission_index,
-            material: material,
-        }
-    }
-}
-
-fn send_to_gpu_uniforms_material(shader: ShaderHandle, uniforms: MaterialUniforms) {
-    shader.use_program();
-    shader.set_int("material.diffuse", uniforms.diffuse_index);
-    shader.set_int("material.specular", uniforms.specular_index);
-    shader.set_int("material.emission", uniforms.emission_index);
-    shader.set_float("material.specular_exponent", uniforms.material.specular_exponent);
-}
-
-fn send_to_gpu_mesh(shader: ShaderHandle, mesh: &ObjMesh) -> (GLuint, GLuint, GLuint, GLuint) {
-    let v_pos_loc = shader.get_attrib_location("aPos");
-    let v_tex_loc = shader.get_attrib_location("aTexCoords");
-    let v_norm_loc = shader.get_attrib_location("aNormal");
-
-    let mut v_pos_vbo = 0;
-    unsafe {
-        gl::GenBuffers(1, &mut v_pos_vbo);
-    }
-    debug_assert!(v_pos_vbo > 0);
-    unsafe {
-        gl::BindBuffer(gl::ARRAY_BUFFER, v_pos_vbo);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            mesh.points.len_bytes() as GLsizeiptr,
-            mesh.points.as_ptr() as *const GLvoid,
-            gl::STATIC_DRAW
-        );
-    }
-
-    let mut v_tex_vbo = 0;
-    unsafe {
-        gl::GenBuffers(1, &mut v_tex_vbo);
-    }
-    debug_assert!(v_tex_vbo > 0);
-    unsafe {
-        gl::BindBuffer(gl::ARRAY_BUFFER, v_tex_vbo);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            mesh.tex_coords.len_bytes() as GLsizeiptr,
-            mesh.tex_coords.as_ptr() as *const GLvoid,
-            gl::STATIC_DRAW
-        )
-    }
-
-    let mut v_norm_vbo = 0;
-    unsafe {
-        gl::GenBuffers(1, &mut v_norm_vbo);
-    }
-    debug_assert!(v_norm_vbo > 0);
-    unsafe {
-        gl::BindBuffer(gl::ARRAY_BUFFER, v_norm_vbo);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            mesh.normals.len_bytes() as GLsizeiptr,
-            mesh.normals.as_ptr() as *const GLvoid,
-            gl::STATIC_DRAW
-        );
-    }
-
-    let mut vao = 0;
-    unsafe {
-        gl::GenVertexArrays(1, &mut vao);
-        gl::BindVertexArray(vao);
-        gl::BindBuffer(gl::ARRAY_BUFFER, v_pos_vbo);
-        gl::VertexAttribPointer(v_pos_loc, 3, gl::FLOAT, gl::FALSE, 0, ptr::null());
-        gl::BindBuffer(gl::ARRAY_BUFFER, v_tex_vbo);
-        gl::VertexAttribPointer(v_tex_loc, 2, gl::FLOAT, gl::FALSE, 0, ptr::null());
-        gl::BindBuffer(gl::ARRAY_BUFFER, v_norm_vbo);
-        gl::VertexAttribPointer(v_norm_loc, 3, gl::FLOAT, gl::FALSE, 0, ptr::null());
-        gl::EnableVertexAttribArray(v_pos_loc);
-        gl::EnableVertexAttribArray(v_tex_loc);
-        gl::EnableVertexAttribArray(v_norm_loc);
-    }
-    debug_assert!(vao > 0);
-
-    (vao, v_pos_vbo, v_tex_vbo, v_norm_vbo)
-}
-
-fn send_to_gpu_light_mesh(shader: ShaderHandle, mesh: &ObjMesh) -> (GLuint, GLuint) {
-    let v_pos_loc = shader.get_attrib_location("v_pos");
-
-    let mut v_pos_vbo = 0;
-    unsafe {
-        gl::GenBuffers(1, &mut v_pos_vbo);
-        gl::BindBuffer(gl::ARRAY_BUFFER, v_pos_vbo);
-        gl::BufferData(
-            gl::ARRAY_BUFFER,
-            (3 * mem::size_of::<GLfloat>() * mesh.points.len()) as GLsizeiptr,
-            mesh.points.as_ptr() as *const GLvoid,
-            gl::STATIC_DRAW
-        );
-    }
-    debug_assert!(v_pos_vbo > 0);
-
-    let mut vao = 0;
-    unsafe {
-        gl::GenVertexArrays(1, &mut vao);
-        gl::BindVertexArray(vao);
-        gl::BindBuffer(gl::ARRAY_BUFFER, v_pos_vbo);
-        gl::VertexAttribPointer(v_pos_loc, 3, gl::FLOAT, gl::FALSE, 0, ptr::null());
-        gl::EnableVertexAttribArray(v_pos_loc);
-    }
-    debug_assert!(vao > 0);
-
-    (vao, v_pos_vbo)
 }
 
 fn create_mesh_shader_source() -> ShaderSource<'static, 'static, 'static> {
@@ -683,59 +412,26 @@ fn process_input(context: &mut OpenGLContext) -> CameraMovement {
 
 fn main() {
     let mesh = create_box_mesh();
-    let box_positions = create_box_positions();
-    let box_model_matrices = create_box_model_matrices(&box_positions);
     let light_mesh = create_box_mesh();
     init_logger("opengl_demo.log");
     info!("BEGIN LOG");
     let mut camera = create_camera(SCREEN_WIDTH, SCREEN_HEIGHT);
     let cube_lights= create_cube_lights();
-    let mut spotlight = create_spotlight(&camera);
     let dir_light = create_directional_light();
-    let material_diffuse_index = 0;
-    let material_specular_index = 1;
-    let material_emission_index = 2;
-    let material = material::sgi_material_table()["chrome"];
-    let material_uniforms = MaterialUniforms::new( 
-        material_diffuse_index, 
-        material_specular_index,
-        material_emission_index,
-        &material,
-    );
-    let lighting_map = create_lighting_map();
     let mut context = init_gl(SCREEN_WIDTH, SCREEN_HEIGHT);
-
-    // The model matrix for the cube light shader and the flashlight shader.
-    let mesh_model_mat = Matrix4::identity();
-
-    // Load the lighting maps data for the flashlight and cubelight shaders.
-    let (
-        diffuse_tex, 
-        specular_tex, 
-        emission_tex) = send_to_gpu_textures_material(&lighting_map);
 
     //  Load the model data for the cube light shader..
     let mesh_shader_source = create_mesh_shader_source();
     let mesh_shader = send_to_gpu_shaders(&mut context, &mesh_shader_source);
-    let (
-        mesh_vao, 
-        _mesh_v_pos_vbo,
-        _mesh_v_tex_vbo,
-        _mesh_v_norm_vbo) = send_to_gpu_mesh(mesh_shader, &mesh);
-    send_to_gpu_uniforms_cube_light_mesh(mesh_shader, &mesh_model_mat);
-    send_to_gpu_uniforms_camera(mesh_shader, &camera);
-    send_to_gpu_uniforms_material(mesh_shader, material_uniforms);
-    send_to_gpu_uniforms_point_lights(mesh_shader, &cube_lights);
-    send_to_gpu_uniforms_spotlight(mesh_shader, &spotlight);
-    send_to_gpu_uniforms_dir_light(mesh_shader, &dir_light);
-
 
     // Load the lighting cube model.
     let light_shader_source = create_cube_light_shader_source();
     let light_shader = send_to_gpu_shaders(&mut context, &light_shader_source);
-    let (
-        light_vao,
-        _light_v_pos_vbo) = send_to_gpu_light_mesh(light_shader, &light_mesh);
+
+    let zip_file = include_bytes!("../assets/backpack.zip");
+    let model = model::load_from_memory(zip_file, "backpack.zip", false).unwrap();
+    println!("meshes length = {}", model.meshes().len());
+    println!("textures_loaded length = {}", model.textures_loaded().len());
 
     unsafe {
         gl::Enable(gl::DEPTH_TEST);
@@ -757,52 +453,10 @@ fn main() {
 
         let delta_movement = process_input(&mut context);
         camera.update_movement(delta_movement, elapsed_seconds as f32);
-        spotlight.update(&camera.position(), &camera.forward_axis());
-
-        send_to_gpu_uniforms_camera(mesh_shader, &camera);
-        send_to_gpu_uniforms_camera(light_shader, &camera);
-        send_to_gpu_uniforms_point_lights(mesh_shader, &cube_lights);
-        send_to_gpu_uniforms_spotlight(mesh_shader, &spotlight);
-        send_to_gpu_uniforms_dir_light(mesh_shader, &dir_light);
-    
-        unsafe {
-            gl::ClearBufferfv(gl::COLOR, 0, &CLEAR_COLOR[0] as *const GLfloat);
-            gl::ClearBufferfv(gl::DEPTH, 0, &CLEAR_DEPTH[0] as *const GLfloat);
-            gl::Viewport(0, 0, context.width as GLint, context.height as GLint);
-            gl::UseProgram(mesh_shader.id);
-            gl::ActiveTexture(gl::TEXTURE0);
-            gl::BindTexture(gl::TEXTURE_2D, diffuse_tex);
-            gl::ActiveTexture(gl::TEXTURE1);
-            gl::BindTexture(gl::TEXTURE_2D, specular_tex);
-            gl::ActiveTexture(gl::TEXTURE2);
-            gl::BindTexture(gl::TEXTURE_2D, emission_tex);
-            gl::BindVertexArray(mesh_vao);
-            gl::DrawArrays(gl::TRIANGLES, 0, mesh.len() as i32);
-        }
-
-        // Illuminate the boxes.
-        for model_matrix in box_model_matrices.iter() {
-            unsafe {
-                send_to_gpu_uniforms_cube_light_mesh(mesh_shader, &model_matrix);
-                gl::DrawArrays(gl::TRIANGLES, 0, mesh.len() as i32);
-            }
-        }
-
-        let scale_matrix = Matrix4::from_affine_scale(0.2);
-
-        // Render the cube lights.
-        for cube_light in cube_lights.iter() {
-            let light_model_mat = cube_light.model_matrix() * &scale_matrix;
-            send_to_gpu_uniforms_cube_light_mesh(light_shader, &light_model_mat);
-            unsafe {
-                gl::UseProgram(light_shader.id);
-                gl::BindVertexArray(light_vao);
-                gl::DrawArrays(gl::TRIANGLES, 0, light_mesh.len() as i32);
-            }
-        }
 
         context.window.swap_buffers();
     }
 
     info!("END LOG");
 }
+

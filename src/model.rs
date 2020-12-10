@@ -3,6 +3,11 @@ use cglinalg::{
     Vector3,
 };
 use wavefront_obj::obj;
+use wavefront_obj::obj::{
+    Element,
+    VTNIndex,
+    VTNTriple,
+};
 use wavefront_obj::mtl;
 use crate::texture;
 use crate::texture::{
@@ -13,6 +18,9 @@ use std::error::Error;
 use std::io;
 use std::io::{
     Read,
+};
+use zip::{
+    ZipArchive,
 };
 
 
@@ -40,111 +48,274 @@ impl Vertex {
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum TextureKind {
+    Ambient,
     Diffuse,
     Specular,
-    Normal,
-    Height,
+    Bump,
     Emission,
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct TextureID {
-    id: u32,
 }
 
 #[derive(Clone)]
 pub struct Texture {
-    kind: TextureKind,
     name: String,
+    kind: TextureKind,
     data: TextureImage2D,
 }
 
+impl Texture {
+    fn new(name: String, kind: TextureKind, data: TextureImage2D) -> Texture {
+        Texture {
+            name: name,
+            kind: kind,
+            data: data,
+        }
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct Mesh {
+    name: String,
     vertices: Vec<Vertex>,
-    indices: Vec<u32>,
-    textures: Vec<TextureID>,
+    vertex_indices: Vec<u32>,
+    texture_indices: Vec<u32>,
 }
 
 impl Mesh {
-    pub fn new(vertices: Vec<Vertex>, indices: Vec<u32>, textures: Vec<TextureID>) -> Mesh {
+    fn new(name: String, vertices: Vec<Vertex>, vertex_indices: Vec<u32>, textures: Vec<u32>) -> Mesh {
         Mesh {
+            name: name,
             vertices: vertices,
-            indices: indices,
-            textures: textures,
+            vertex_indices: vertex_indices,
+            texture_indices: textures,
         }
     }
 }
 
 pub struct Model {
-    textures_loaded: HashMap<TextureID, Texture>,
-    meshes: Vec<Mesh>,
     name: String,
-    gamma_correction: bool,
+    meshes: Vec<Mesh>,
+    textures_loaded: Vec<Texture>,
+    pub gamma_correction: bool,
 }
 
+impl Model {
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn meshes(&self) -> &[Mesh] {
+        &self.meshes
+    }
+
+    pub fn textures_loaded(&self) -> &[Texture] {
+        &self.textures_loaded
+    }
+}
+
+impl Model {
+    fn new(name: String, meshes: Vec<Mesh>, textures_loaded: Vec<Texture>, gamma_correction: bool) -> Model {
+        Model {
+            name: name,
+            meshes: meshes,
+            textures_loaded: textures_loaded,
+            gamma_correction: gamma_correction,
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct ModelLoadError {
-    error: Box<dyn Error>,
+    error: Option<Box<dyn Error>>,
 }
 
-pub fn load_from_memory(buffer: &[u8]) -> Result<Model, ModelLoadError> {
-    let mut reader = io::Cursor::new(buffer);
+fn search_material_sets<'a>(material_sets: &'a [mtl::MaterialSet], material_name: &str) -> Option<&'a mtl::Material> {
+    for material_set in material_sets.iter() {
+        for material in material_set.materials.iter() {
+            if material_name == material.name {
+                return Some(&material)
+            }
+        }
+    }
+
+    None
+}
+
+// TODO: Calculate normals from vertex data in the case that they're missing?
+fn load_mesh_vertices(object: &obj::Object) -> Vec<Vertex> {
+    let mut vertices = vec![];
+    for element in object.element_set.iter() {
+        match element {
+            Element::Face(vtn1, vtn2, vtn3) => {
+                let triples = [
+                    object.get_vtn_triple(*vtn1).unwrap(),
+                    object.get_vtn_triple(*vtn2).unwrap(),
+                    object.get_vtn_triple(*vtn3).unwrap(),
+                ];
+                
+                for triple in triples.iter() {
+                    match triple {
+                        VTNTriple::V(vp) => {
+                            vertices.push(Vertex {
+                                position: Vector3::new(vp.x as f32, vp.y as f32, vp.z as f32),
+                                normal: Vector3::zero(),
+                                tex_coords: Vector2::zero(),
+                                tangent: Vector3::zero(),
+                                bitangent: Vector3::zero(),
+                            });
+                        }
+                        VTNTriple::VT(vp, vt) => {
+                            vertices.push(Vertex {
+                                position: Vector3::new(vp.x as f32, vp.y as f32, vp.z as f32),
+                                normal: Vector3::zero(),
+                                tex_coords: Vector2::new(vt.u as f32, vt.v as f32),
+                                tangent: Vector3::zero(),
+                                bitangent: Vector3::zero(),
+                            });
+                        }
+                        VTNTriple::VN(vp, vn) => {
+                            vertices.push(Vertex {
+                                position: Vector3::new(vp.x as f32, vp.y as f32, vp.z as f32),
+                                normal: Vector3::new(vn.x as f32, vn.y as f32, vn.z as f32),
+                                tex_coords: Vector2::zero(),
+                                tangent: Vector3::zero(),
+                                bitangent: Vector3::zero(),
+                            });
+                        }
+                        VTNTriple::VTN(vp, vt, vn) => {
+                            vertices.push(Vertex {
+                                position: Vector3::new(vp.x as f32, vp.y as f32, vp.z as f32),
+                                normal: Vector3::new(vn.x as f32, vn.y as f32, vn.z as f32),
+                                tex_coords: Vector2::new(vt.u as f32, vt.v as f32),
+                                tangent: Vector3::zero(),
+                                bitangent: Vector3::zero(),
+                            });
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    vertices
+}
+
+fn load_texture_map<R: io::Read + io::Seek>(
+    zip_archive: &mut ZipArchive<R>, 
+    textures_loaded: &mut Vec<Texture>, 
+    texture_name: Option<&str>) -> Option<u32> {
+
+    match texture_name {
+        Some(file_name) => {
+            let mut file = zip_archive.by_name(&file_name).map_err(|e| {
+                ModelLoadError {
+                    error: Some(Box::new(e)),
+                }
+            })
+            .ok()?;
+            let texture_kind = TextureKind::Ambient;
+            let texture_image = texture::from_reader(&mut file);
+            let texture_map = Texture::new(file_name.to_owned(), texture_kind, texture_image);
+            textures_loaded.push(texture_map);
+            
+            Some((textures_loaded.len() - 1) as u32)
+        }
+        None => {
+            None
+        }
+    }
+}
+
+pub fn load_from_memory(buffer: &[u8], model_name: &str, gamma_correction: bool) -> Result<Model, ModelLoadError> {
+    let reader = io::Cursor::new(buffer);
     let mut zip_archive = zip::ZipArchive::new(reader).map_err(|e| {
         ModelLoadError {
-            error: Box::new(e),
+            error: Some(Box::new(e)),
         }
     })?;
-    let obj_set = {
+    let obj_file = {
         let obj_file_names = zip_archive
             .file_names()
-            .filter(|file_name| { file_name.ends_with(".obj") })
+            .filter(|file_name| file_name.ends_with(".obj"))
             .collect::<Vec<&str>>();
-        let obj_file_name = String::from(obj_file_names[0]);
-        let mut obj_file = zip_archive.by_name(&obj_file_name).map_err(|e| {
+        let file_name = obj_file_names[0].to_owned();
+        let mut file = zip_archive.by_name(&file_name).map_err(|e| {
             ModelLoadError {
-                error: Box::new(e),
+                error: Some(Box::new(e)),
             }
         })?;
-        let mut obj_buffer = String::new();
-        obj_file.read_to_string(&mut obj_buffer).map_err(|e| {
+        let mut buffer = String::new();
+        file.read_to_string(&mut buffer).map_err(|e| {
             ModelLoadError {
-                error: Box::new(e),
-            }
-        })?;
-        let obj_set = obj::parse(&obj_buffer).map_err(|e| {
-            ModelLoadError {
-                error: Box::new(e),
+                error: Some(Box::new(e)),
             }
         })?;
 
-        obj_set
+        buffer
     };
-    let mtl_set = {
-        let mtl_file_names = zip_archive
-            .file_names()
-            .filter(|file_name| { file_name.ends_with(".mtl") })
-            .collect::<Vec<&str>>();
-        let mtl_file_name = String::from(mtl_file_names[0]);
-        let mut mtl_file = zip_archive.by_name(&mtl_file_name).map_err(|e| {
+    let obj_set = obj::parse(&obj_file).map_err(|e| {
+        ModelLoadError {
+            error: Some(Box::new(e)),
+        }
+    })?;
+    let mut mtl_sets = vec![];
+    for material_library in obj_set.material_libraries.iter() {
+        let mut file = zip_archive.by_name(&material_library).map_err(|e| {
             ModelLoadError {
-                error: Box::new(e),
+                error: Some(Box::new(e))
             }
         })?;
-        let mut mtl_buffer = String::new();
-        mtl_file.read_to_string(&mut mtl_buffer).map_err(|e| {
+        let mut buffer = String::new();
+        file.read_to_string(&mut buffer).map_err(|e| {
             ModelLoadError {
-                error: Box::new(e),
+                error: Some(Box::new(e))
             }
         })?;
-        let mtl_set = mtl::parse(&mtl_buffer).map_err(|e| {
+        let mtl_set = mtl::parse(&buffer).map_err(|e| {
             ModelLoadError {
-                error: Box::new(e),
+                error: Some(Box::new(e)),
             }
         })?;
+        mtl_sets.push(mtl_set);
+    }
 
-        mtl_set
-    };
-    unimplemented!();
+    let mut textures_loaded = vec![];
+    let mut meshes = vec![];
+    for object in obj_set.objects.iter() {
+        assert!(object.geometry_set.len() == 1);
+
+        let material_name = &object.geometry_set[0].material_name
+            .as_ref()
+            .map(|s| s.as_str())
+            .ok_or(
+                ModelLoadError {
+                    error: None,
+                }
+            )?;
+        let material = search_material_sets(&mtl_sets, &material_name).ok_or(
+            ModelLoadError {
+                error: None,
+            }
+        )?;
+
+        let mesh_name = object.name.clone();
+        let vertices = load_mesh_vertices(&object);
+        let vertex_indices: Vec<u32> = (0..vertices.len() as u32).collect();
+        let mut texture_indices = vec![];
+        let texture_index = load_texture_map(
+            &mut zip_archive, 
+            &mut textures_loaded,
+            material.map_ambient.as_ref().map(|s| s.as_str()), 
+        ).ok_or(
+            ModelLoadError {
+                error: None,
+            }
+        )?;
+        texture_indices.push(texture_index);
+        let mesh = Mesh::new(mesh_name, vertices, vertex_indices, texture_indices);
+        meshes.push(mesh);
+    }
+
+    Ok(Model::new(model_name.to_owned(), meshes, textures_loaded, gamma_correction))
 }
 
