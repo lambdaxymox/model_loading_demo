@@ -217,7 +217,13 @@ fn load_mesh_vertices(object: &obj::Object) -> Vec<Vertex> {
 }
 
 fn lookup_texture(textures_loaded: &[Texture], texture_name: &str) -> Option<u32> {
-    unimplemented!()
+    for i in 0..textures_loaded.len() {
+        if textures_loaded[i].name == texture_name {
+            return Some(i as u32);
+        }
+    }
+
+    None
 }
 
 fn load_texture_map<R: io::Read + io::Seek>(
