@@ -15,7 +15,6 @@ mod gl {
 mod backend;
 mod camera;
 mod light;
-mod lighting_map;
 mod texture;
 mod model;
 
