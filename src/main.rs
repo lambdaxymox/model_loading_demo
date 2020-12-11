@@ -64,9 +64,6 @@ use crate::backend::{
 use crate::camera::{
     PerspectiveFovCamera,
 };
-use crate::lighting_map::{
-    LightingMap,
-};
 use crate::light::*;
 
 use std::mem;
