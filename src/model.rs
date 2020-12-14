@@ -1,13 +1,13 @@
+use crate::texture;
+use crate::texture::{
+    TextureImage2D,
+};
 use cglinalg::{
     Vector2,
     Vector3,
 };
 use wavefront_obj::obj;
 use wavefront_obj::mtl;
-use crate::texture;
-use crate::texture::{
-    TextureImage2D,
-};
 use std::collections::{
     HashMap,
 };
@@ -151,7 +151,7 @@ fn load_mesh_vertices(object: &obj::Object) -> Vec<Vertex> {
                     object.get_vtn_triple(*vtn2).unwrap(),
                     object.get_vtn_triple(*vtn3).unwrap(),
                 ];
-                
+             
                 for triple in triples.iter() {
                     match triple {
                         obj::VTNTriple::V(vp) => {
@@ -226,7 +226,11 @@ fn load_texture_map<R: io::Read + io::Seek>(
         }
 
         let mut file = zip_archive.by_name(&file_name).ok()?;
-        let texture_image = texture::from_reader(&mut file);
+        let texture_image = if file_name.ends_with(".png") {
+            texture::from_png_reader(&mut file)
+        } else {
+            texture::from_jpeg_reader(&mut file)
+        };
         let texture_map = Texture::new(
             file_name.to_owned(), 
             texture_kind, 

@@ -11,7 +11,7 @@ log = "0.4.11"
 file_logger = { git = "https://github.com/lambdaxymox/file-logger" }
 cglinalg = { git = "https://github.com/lambdaxymox/cglinalg" }
 cgperspective = { git = "https://github.com/lambdaxymox/cgperspective" }
-cgwavefront_obj = { version = "1.0.2", git = "https://github.com/lambdaxymox/cgwavefront_obj" }
+cgwavefront_obj = { version = "1.0.3", git = "https://github.com/lambdaxymox/cgwavefront_obj" }
 mini_obj = { git = "https://github.com/lambdaxymox/mini_obj" }
 zip = "0.5.8"
 

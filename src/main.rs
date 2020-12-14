@@ -64,6 +64,7 @@ use crate::camera::{
     PerspectiveFovCamera,
 };
 use crate::light::*;
+use crate::model::*;
 
 use std::mem;
 use std::ptr;
@@ -77,6 +78,13 @@ const CLEAR_DEPTH: [f32; 4] = [1.0_f32, 1.0_f32, 1.0_f32, 1.0_f32];
 const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
 
+
+fn create_backpack_model() -> Model {
+    let buffer = include_bytes!("../assets/backpack.zip");
+    let asset = model::load_from_memory(buffer, "backpack.zip", false).unwrap();
+
+    asset
+}
 
 fn create_box_mesh() -> ObjMesh {
     let points: Vec<[f32; 3]> = vec![
@@ -403,10 +411,13 @@ fn process_input(context: &mut OpenGLContext) -> CameraMovement {
 }
 
 fn main() {
-    let mesh = create_box_mesh();
+    let model = create_backpack_model();
     let light_mesh = create_box_mesh();
     init_logger("opengl_demo.log");
     info!("BEGIN LOG");
+    info!("Model name: {}", model.name());
+    info!("Number of meshes loaded: {}", model.meshes().len());
+    info!("Number of textures loaded: {}", model.textures_loaded().len());
     let mut camera = create_camera(SCREEN_WIDTH, SCREEN_HEIGHT);
     let cube_lights= create_cube_lights();
     let dir_light = create_directional_light();
@@ -419,11 +430,6 @@ fn main() {
     // Load the lighting cube model.
     let light_shader_source = create_cube_light_shader_source();
     let light_shader = send_to_gpu_shaders(&mut context, &light_shader_source);
-
-    let zip_file = include_bytes!("../assets/backpack.zip");
-    let model = model::load_from_memory(zip_file, "backpack.zip", false).unwrap();
-    println!("meshes length = {}", model.meshes().len());
-    println!("textures_loaded length = {}", model.textures_loaded().len());
 
     unsafe {
         gl::Enable(gl::DEPTH_TEST);
