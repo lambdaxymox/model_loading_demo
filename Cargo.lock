@@ -369,15 +369,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mini_obj"
-version = "0.1.11"
-source = "git+https://github.com/lambdaxymox/mini_obj#a099501e39234c4dde325c632d4a0c1cd13f0a3c"
-dependencies = [
- "obj",
- "obj_gen",
-]
-
-[[package]]
 name = "miniz_oxide"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -408,7 +399,6 @@ dependencies = [
  "glfw",
  "image",
  "log",
- "mini_obj",
  "zip",
 ]
 
@@ -462,22 +452,6 @@ checksum = "05499f3756671c15885fee9034446956fff3f243d6077b91e5767df161f766b3"
 dependencies = [
  "hermit-abi",
  "libc",
-]
-
-[[package]]
-name = "obj"
-version = "0.1.11"
-source = "git+https://github.com/lambdaxymox/mini_obj#a099501e39234c4dde325c632d4a0c1cd13f0a3c"
-dependencies = [
- "cgwavefront_obj",
-]
-
-[[package]]
-name = "obj_gen"
-version = "0.1.11"
-source = "git+https://github.com/lambdaxymox/mini_obj#a099501e39234c4dde325c632d4a0c1cd13f0a3c"
-dependencies = [
- "obj",
 ]
 
 [[package]]

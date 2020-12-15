@@ -5,7 +5,6 @@ extern crate image;
 extern crate log;
 extern crate file_logger;
 extern crate wavefront_obj;
-extern crate mini_obj;
 
 
 mod gl {
@@ -50,10 +49,6 @@ use gl::types::{
 use log::{
     info
 };
-use mini_obj::{
-    ObjMesh
-};
-
 use crate::backend::{
     OpenGLContext,
     ShaderSourceBuilder,
@@ -92,7 +87,7 @@ fn create_backpack_model() -> Model {
 
     asset
 }
-
+/*
 fn create_box_mesh() -> ObjMesh {
     let points: Vec<[f32; 3]> = vec![
         [-0.5, -0.5, -0.5], [ 0.5, -0.5, -0.5], [ 0.5,  0.5, -0.5],
@@ -139,7 +134,7 @@ fn create_box_mesh() -> ObjMesh {
 
     ObjMesh::new(points, tex_coords, normals)
 }
-
+*/
 fn create_camera(width: u32, height: u32) -> PerspectiveFovCamera<f32> {
     let near = 0.1;
     let far = 100.0;
@@ -491,7 +486,7 @@ fn process_input(context: &mut OpenGLContext) -> CameraMovement {
 
 fn main() {
     let model = create_backpack_model();
-    let light_mesh = create_box_mesh();
+    // let light_mesh = create_box_mesh();
     init_logger("opengl_demo.log");
     info!("BEGIN LOG");
     info!("Model name: \"{}\"", model.name);
