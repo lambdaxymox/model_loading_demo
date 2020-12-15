@@ -79,6 +79,13 @@ const SCREEN_WIDTH: u32 = 800;
 const SCREEN_HEIGHT: u32 = 600;
 
 
+#[inline]
+fn offset_of<S, T>(ptr1: &S, ptr2: &T) -> usize {
+    unsafe {
+        ptr1 as *const S as usize - ptr2 as *const T as usize
+    }
+}
+
 fn create_backpack_model() -> Model {
     let buffer = include_bytes!("../assets/backpack.zip");
     let asset = model::load_from_memory(buffer, "backpack.zip", false).unwrap();
@@ -131,22 +138,6 @@ fn create_box_mesh() -> ObjMesh {
     ];
 
     ObjMesh::new(points, tex_coords, normals)
-}
-
-fn create_box_model_matrices(box_positions: &[Vector3<f32>]) -> Vec<Matrix4<f32>> {
-    let mut box_model_matrices = vec![];
-    for i in 0..box_positions.len() {
-        let translation_i = Matrix4::from_affine_translation(&box_positions[i]);
-        let angle_i = Radians(20.0 * (i as f32));
-        let axis_i = Unit::from_value(Vector3::new(1.0, 0.3, 0.5));
-        let rotation_i = Matrix4::from_affine_axis_angle(&axis_i, angle_i);
-        let model_i = rotation_i * translation_i;
-        box_model_matrices.push(model_i);
-    }
-
-    debug_assert_eq!(box_model_matrices.len(), box_positions.len());
-
-    box_model_matrices
 }
 
 fn create_camera(width: u32, height: u32) -> PerspectiveFovCamera<f32> {
@@ -292,6 +283,94 @@ fn create_cube_light_shader_source() -> ShaderSource<'static, 'static, 'static> 
     .build()
 }
 
+fn send_to_gpu_mesh(mesh: &Mesh) -> (GLuint, GLuint, GLuint) {
+    let mut vao = 0;
+    unsafe {
+        gl::GenVertexArrays(1, &mut vao);
+    };
+    debug_assert!(vao > 0);
+    
+    let mut vbo = 0; 
+    unsafe {
+        gl::GenBuffers(1, &mut vbo);
+    };
+    debug_assert!(vbo > 0);
+    
+    // Element Buffer Object.
+    let mut ebo = 0;
+    unsafe {
+        gl::GenBuffers(1, &mut ebo);
+    }
+    debug_assert!(ebo > 0);
+
+    unsafe {
+        let null_vertex = mem::zeroed::<Vertex>();
+        gl::BindVertexArray(vao);
+        gl::BindBuffer(gl::ARRAY_BUFFER, vbo);
+        gl::BufferData(
+            gl::ARRAY_BUFFER, 
+            (mesh.vertices.len() * mem::size_of::<Vertex>()) as GLsizeiptr, 
+            mesh.vertices.as_ptr() as *const GLvoid, 
+            gl::STATIC_DRAW
+        );
+        gl::BindBuffer(gl::ELEMENT_ARRAY_BUFFER, ebo);
+        gl::BufferData(
+            gl::ELEMENT_ARRAY_BUFFER,
+            (mesh.vertex_indices.len() * mem::size_of::<u32>()) as GLsizeiptr,
+            mesh.vertex_indices.as_ptr() as *const GLvoid,
+            gl::STATIC_DRAW
+        );
+        gl::VertexAttribPointer(
+            0, 
+            3, 
+            gl::FLOAT, 
+            gl::FALSE, 
+            mem::size_of::<Vertex>() as GLint, 
+            offset_of(&null_vertex, &null_vertex.position) as *const GLvoid
+        );
+        gl::VertexAttribPointer(
+            1, 
+            3, 
+            gl::FLOAT, 
+            gl::FALSE, 
+            mem::size_of::<Vertex>() as GLint,
+            offset_of(&null_vertex, &null_vertex.normal) as *const GLvoid
+        );
+        gl::VertexAttribPointer(
+            2,
+            2,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<Vertex>() as GLint,
+            offset_of(&null_vertex, &null_vertex.tex_coords) as *const GLvoid
+        );
+        gl::VertexAttribPointer(
+            3,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<Vertex>() as GLint,
+            offset_of(&null_vertex, &null_vertex.tangent) as *const GLvoid
+        );
+        gl::VertexAttribPointer(
+            4,
+            3,
+            gl::FLOAT,
+            gl::FALSE,
+            mem::size_of::<Vertex>() as GLint,
+            offset_of(&null_vertex, &null_vertex.bitangent) as *const GLvoid
+        );
+
+        gl::EnableVertexAttribArray(0);
+        gl::EnableVertexAttribArray(1);
+        gl::EnableVertexAttribArray(2);
+        gl::EnableVertexAttribArray(3);
+        gl::EnableVertexAttribArray(4);
+    }
+
+    (vao, vbo, ebo)
+}
+
 fn send_to_gpu_shaders(_context: &mut OpenGLContext, source: &ShaderSource) -> ShaderHandle {
     backend::compile(source).unwrap()
 }
@@ -415,9 +494,9 @@ fn main() {
     let light_mesh = create_box_mesh();
     init_logger("opengl_demo.log");
     info!("BEGIN LOG");
-    info!("Model name: {}", model.name());
-    info!("Number of meshes loaded: {}", model.meshes().len());
-    info!("Number of textures loaded: {}", model.textures_loaded().len());
+    info!("Model name: \"{}\"", model.name);
+    info!("Number of meshes loaded: {}", model.meshes.len());
+    info!("Number of textures loaded: {}", model.textures_loaded.len());
     let mut camera = create_camera(SCREEN_WIDTH, SCREEN_HEIGHT);
     let cube_lights= create_cube_lights();
     let dir_light = create_directional_light();

@@ -26,11 +26,11 @@ use zip::{
 #[repr(C)]
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vertex {
-    position: Vector3<f32>,
-    normal: Vector3<f32>,
-    tex_coords: Vector2<f32>,
-    tangent: Vector3<f32>,
-    bitangent: Vector3<f32>,
+    pub position: Vector3<f32>,
+    pub normal: Vector3<f32>,
+    pub tex_coords: Vector2<f32>,
+    pub tangent: Vector3<f32>,
+    pub bitangent: Vector3<f32>,
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -42,11 +42,12 @@ pub enum TextureKind {
     Emission,
 }
 
+#[repr(C)]
 #[derive(Clone)]
 pub struct Texture {
-    name: String,
-    kind: TextureKind,
-    data: TextureImage2D,
+    pub name: String,
+    pub kind: TextureKind,
+    pub data: TextureImage2D,
 }
 
 impl Texture {
@@ -59,12 +60,13 @@ impl Texture {
     }
 }
 
+#[repr(C)]
 #[derive(Clone, Debug)]
 pub struct Mesh {
-    name: String,
-    vertices: Vec<Vertex>,
-    vertex_indices: Vec<u32>,
-    texture_indices: HashMap<TextureKind, u32>,
+    pub name: String,
+    pub vertices: Vec<Vertex>,
+    pub vertex_indices: Vec<u32>,
+    pub texture_indices: HashMap<TextureKind, u32>,
 }
 
 impl Mesh {
@@ -84,24 +86,10 @@ impl Mesh {
 }
 
 pub struct Model {
-    name: String,
-    meshes: Vec<Mesh>,
-    textures_loaded: Vec<Texture>,
+    pub name: String,
+    pub meshes: Vec<Mesh>,
+    pub textures_loaded: Vec<Texture>,
     pub gamma_correction: bool,
-}
-
-impl Model {
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    pub fn meshes(&self) -> &[Mesh] {
-        &self.meshes
-    }
-
-    pub fn textures_loaded(&self) -> &[Texture] {
-        &self.textures_loaded
-    }
 }
 
 impl Model {
