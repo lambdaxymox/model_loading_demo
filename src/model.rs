@@ -1,5 +1,5 @@
-use crate::texture;
-use crate::texture::{
+use crate::backend;
+use crate::backend::{
     TextureImage2D,
 };
 use cglinalg::{
@@ -215,9 +215,9 @@ fn load_texture_map<R: io::Read + io::Seek>(
 
         let mut file = zip_archive.by_name(&file_name).ok()?;
         let texture_image = if file_name.ends_with(".png") {
-            texture::from_png_reader(&mut file)
+            backend::from_png_reader(&mut file)
         } else {
-            texture::from_jpeg_reader(&mut file)
+            backend::from_jpeg_reader(&mut file)
         };
         let texture_map = Texture::new(
             file_name.to_owned(), 

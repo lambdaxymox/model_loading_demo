@@ -14,7 +14,6 @@ mod gl {
 mod backend;
 mod camera;
 mod light;
-mod texture;
 mod model;
 
 
@@ -167,7 +166,7 @@ fn create_camera(width: u32, height: u32) -> PerspectiveFovCamera<f32> {
 
     Camera::new(&model_spec, &attitude_spec, &kinematics_spec)
 }
-
+/*
 fn create_cube_lights() -> [PointLight<f32>; 4] {
     let position_0 = Vector3::new(0.7, 0.2, 2.0);
     let ambient_0 = Vector3::new(0.2, 0.2, 0.2);
@@ -277,8 +276,29 @@ fn create_cube_light_shader_source() -> ShaderSource<'static, 'static, 'static> 
         fragment_source)
     .build()
 }
+*/
 
-fn send_to_gpu_mesh(mesh: &Mesh) -> (GLuint, GLuint, GLuint) {
+fn create_model_shader_source() -> ShaderSource<'static, 'static, 'static> {
+    let vertex_name = "model.vert.glsl";
+    let vertex_source = include_str!("../shaders/model.vert.glsl");
+    let fragment_name = "model.frag.glsl";
+    let fragment_source = include_str!("../shaders/model.frag.glsl");
+
+    ShaderSourceBuilder::new(
+        vertex_name,
+        vertex_source,
+        fragment_name,
+        fragment_source
+    )
+    .build()
+}
+
+
+fn send_to_gpu_mesh(shader: ShaderHandle, mesh: &Mesh) -> (GLuint, GLuint, GLuint) {
+    let a_pos_loc = shader.get_attrib_location("aPos");
+    let a_normal_loc = shader.get_attrib_location("aNormal");
+    let a_tex_coords_loc = shader.get_attrib_location("aTexCoords");
+
     let mut vao = 0;
     unsafe {
         gl::GenVertexArrays(1, &mut vao);
@@ -316,7 +336,7 @@ fn send_to_gpu_mesh(mesh: &Mesh) -> (GLuint, GLuint, GLuint) {
             gl::STATIC_DRAW
         );
         gl::VertexAttribPointer(
-            0, 
+            a_pos_loc, 
             3, 
             gl::FLOAT, 
             gl::FALSE, 
@@ -324,7 +344,7 @@ fn send_to_gpu_mesh(mesh: &Mesh) -> (GLuint, GLuint, GLuint) {
             offset_of(&null_vertex, &null_vertex.position) as *const GLvoid
         );
         gl::VertexAttribPointer(
-            1, 
+            a_normal_loc, 
             3, 
             gl::FLOAT, 
             gl::FALSE, 
@@ -332,13 +352,14 @@ fn send_to_gpu_mesh(mesh: &Mesh) -> (GLuint, GLuint, GLuint) {
             offset_of(&null_vertex, &null_vertex.normal) as *const GLvoid
         );
         gl::VertexAttribPointer(
-            2,
+            a_tex_coords_loc,
             2,
             gl::FLOAT,
             gl::FALSE,
             mem::size_of::<Vertex>() as GLint,
             offset_of(&null_vertex, &null_vertex.tex_coords) as *const GLvoid
         );
+        /*
         gl::VertexAttribPointer(
             3,
             3,
@@ -355,12 +376,14 @@ fn send_to_gpu_mesh(mesh: &Mesh) -> (GLuint, GLuint, GLuint) {
             mem::size_of::<Vertex>() as GLint,
             offset_of(&null_vertex, &null_vertex.bitangent) as *const GLvoid
         );
+        */
 
         gl::EnableVertexAttribArray(0);
         gl::EnableVertexAttribArray(1);
         gl::EnableVertexAttribArray(2);
-        gl::EnableVertexAttribArray(3);
-        gl::EnableVertexAttribArray(4);
+        // Tangent and Bitangent are not in use.
+        // gl::EnableVertexAttribArray(3);
+        // gl::EnableVertexAttribArray(4);
     }
 
     (vao, vbo, ebo)
@@ -486,24 +509,21 @@ fn process_input(context: &mut OpenGLContext) -> CameraMovement {
 
 fn main() {
     let model = create_backpack_model();
-    // let light_mesh = create_box_mesh();
     init_logger("opengl_demo.log");
     info!("BEGIN LOG");
     info!("Model name: \"{}\"", model.name);
     info!("Number of meshes loaded: {}", model.meshes.len());
     info!("Number of textures loaded: {}", model.textures_loaded.len());
     let mut camera = create_camera(SCREEN_WIDTH, SCREEN_HEIGHT);
-    let cube_lights= create_cube_lights();
-    let dir_light = create_directional_light();
     let mut context = init_gl(SCREEN_WIDTH, SCREEN_HEIGHT);
+    let model_shader_source = create_model_shader_source();
+    let model_shader = send_to_gpu_shaders(&mut context, &model_shader_source);
+    let (
+        model_vao,
+        model_vbo,
+        model_ebo) = send_to_gpu_mesh(model_shader, &model.meshes[0]);
+    let model_mat: Matrix4<f32> = Matrix4::identity();
 
-    //  Load the model data for the cube light shader..
-    let mesh_shader_source = create_mesh_shader_source();
-    let mesh_shader = send_to_gpu_shaders(&mut context, &mesh_shader_source);
-
-    // Load the lighting cube model.
-    let light_shader_source = create_cube_light_shader_source();
-    let light_shader = send_to_gpu_shaders(&mut context, &light_shader_source);
 
     unsafe {
         gl::Enable(gl::DEPTH_TEST);

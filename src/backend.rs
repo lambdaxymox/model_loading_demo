@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use crate::gl;
-use crate::gl::types::{
+use gl::types::{
     GLboolean, 
     GLchar, 
     GLenum, 
@@ -8,7 +8,7 @@ use crate::gl::types::{
     GLint, 
     GLubyte, 
     GLuint,
-    GLvoid
+    GLvoid,
 };
 use glfw;
 use glfw::{
@@ -17,6 +17,9 @@ use glfw::{
 };
 use image::png::{
     PngDecoder,
+};
+use image::jpeg::{
+    JpegDecoder,
 };
 use image::{
     ImageDecoder,
@@ -37,16 +40,16 @@ use std::io::{
 use std::sync::mpsc::{
     Receiver
 };
-use std::ptr;
-use std::fmt;
-use std::mem;
-use std::path::{
-    Path
-};
-
 use log::{
     info, 
     error
+};
+use std::ptr;
+use std::fmt;
+use std::io;
+use std::mem;
+use std::path::{
+    Path
 };
 
 
@@ -605,7 +608,8 @@ pub fn link_shader(
 /// Compile and link a shader program directly from the files.
 pub fn compile_from_files<P: AsRef<Path>, Q: AsRef<Path>>(
     context: &OpenGLContext,
-    vert_file_name: P, frag_file_name: Q) -> Result<GLuint, ShaderCompilationError> {
+    vert_file_name: P, 
+    frag_file_name: Q) -> Result<GLuint, ShaderCompilationError> {
 
     let mut vert_reader = BufReader::new(match File::open(&vert_file_name) {
         Ok(val) => val,
@@ -849,40 +853,97 @@ impl ShaderHandle {
     }
 }
 
-pub fn load_image(buffer: &[u8]) -> TextureImage2D {
-    let cursor = Cursor::new(buffer);
+pub fn from_png_buffer(buffer: &[u8]) -> TextureImage2D {
+    let cursor = io::Cursor::new(buffer);
     let image_decoder = PngDecoder::new(cursor).unwrap();
     let (width, height) = image_decoder.dimensions();
     let total_bytes = image_decoder.total_bytes();
-    let bytes_per_pixel = image_decoder.color_type().bytes_per_pixel() as u32;
+    let image_decoder_color_type = image_decoder.color_type();
+    let color_type = match image_decoder_color_type {
+        image::ColorType::Rgb8 => ColorType::Rgb8,
+        image::ColorType::Rgba8 => ColorType::Rgba8,
+        _ => ColorType::L8,
+    };
+    let bytes_per_pixel = image_decoder_color_type.bytes_per_pixel() as u32;
     let mut image_data = vec![0 as u8; total_bytes as usize];
     image_decoder.read_image(&mut image_data).unwrap();
 
     assert_eq!(total_bytes, (width * height * bytes_per_pixel) as u64);
 
-    TextureImage2D::new(width, height, bytes_per_pixel, image_data)
+    TextureImage2D::new(width, height, color_type, bytes_per_pixel, image_data)
+}
+
+pub fn from_png_reader<R: io::Read>(reader: &mut R) -> TextureImage2D {
+    let image_decoder = PngDecoder::new(reader).unwrap();
+    let (width, height) = image_decoder.dimensions();
+    let total_bytes = image_decoder.total_bytes();
+    let image_decoder_color_type = image_decoder.color_type();
+    let color_type = match image_decoder_color_type {
+        image::ColorType::Rgb8 => ColorType::Rgb8,
+        image::ColorType::Rgba8 => ColorType::Rgba8,
+        _ => ColorType::L8,
+    };
+    let bytes_per_pixel = image_decoder_color_type.bytes_per_pixel() as u32;
+    let mut image_data = vec![0 as u8; total_bytes as usize];
+    image_decoder.read_image(&mut image_data).unwrap();
+
+    assert_eq!(total_bytes, (width * height * bytes_per_pixel) as u64);
+
+    TextureImage2D::new(width, height, color_type, bytes_per_pixel, image_data)
+}
+
+pub fn from_jpeg_reader<R: io::Read>(reader: &mut R) -> TextureImage2D {
+    let image_decoder = JpegDecoder::new(reader).unwrap();
+    let (width, height) = image_decoder.dimensions();
+    let total_bytes = image_decoder.total_bytes();
+    let image_decoder_color_type = image_decoder.color_type();
+    let color_type = match image_decoder_color_type {
+        image::ColorType::Rgb8 => ColorType::Rgb8,
+        image::ColorType::Rgba8 => ColorType::Rgba8,
+        _ => ColorType::L8,
+    };
+    let bytes_per_pixel = image_decoder_color_type.bytes_per_pixel() as u32;
+    let mut image_data = vec![0 as u8; total_bytes as usize];
+    image_decoder.read_image(&mut image_data).unwrap();
+
+    assert_eq!(total_bytes, (width * height * bytes_per_pixel) as u64);
+
+    TextureImage2D::new(width, height, color_type, bytes_per_pixel, image_data)
 }
 
 /// Load texture image into the GPU.
 pub fn send_to_gpu_texture(texture_image: &TextureImage2D, wrapping_mode: GLuint) -> Result<GLuint, String> {
-    let mut tex = 0;
+    let mut texture_id = 0;
     unsafe {
-        gl::GenTextures(1, &mut tex);
+        gl::GenTextures(1, &mut texture_id);
     }
-    debug_assert!(tex > 0);
+    debug_assert!(texture_id > 0);
+
+    let format = match texture_image.color_type {
+        ColorType::Rgb8 => gl::RGB,
+        ColorType::Rgba8 => gl::RGBA,
+        ColorType::L8 => gl::RED,
+    };
+
     unsafe {
         gl::ActiveTexture(gl::TEXTURE0);
-        gl::BindTexture(gl::TEXTURE_2D, tex);
+        gl::BindTexture(gl::TEXTURE_2D, texture_id);
         gl::TexImage2D(
-            gl::TEXTURE_2D, 0, gl::RGBA as i32, texture_image.width as i32, texture_image.height as i32, 0,
-            gl::RGBA, gl::UNSIGNED_BYTE,
+            gl::TEXTURE_2D, 
+            0, 
+            format as i32, 
+            texture_image.width as i32, 
+            texture_image.height as i32, 
+            0,
+            format, 
+            gl::UNSIGNED_BYTE,
             texture_image.as_ptr() as *const GLvoid
         );
         gl::GenerateMipmap(gl::TEXTURE_2D);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, wrapping_mode as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, wrapping_mode as GLint);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
         gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR_MIPMAP_LINEAR as GLint);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as GLint);
     }
 
     let mut max_aniso = 0.0;
@@ -891,23 +952,31 @@ pub fn send_to_gpu_texture(texture_image: &TextureImage2D, wrapping_mode: GLuint
         gl::TexParameterf(gl::TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, max_aniso);
     }
 
-    Ok(tex)
+    Ok(texture_id)
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum ColorType {
+    L8,
+    Rgb8,
+    Rgba8,
+}
 
 #[derive(Clone)]
 pub struct TextureImage2D {
     pub width: u32,
     pub height: u32,
+    pub color_type: ColorType,
     pub bytes_per_pixel: u32,
     data: Vec<u8>,
 }
 
 impl TextureImage2D {
-    pub fn new(width: u32, height: u32, bytes_per_pixel: u32, data: Vec<u8>) -> Self {
+    pub fn new(width: u32, height: u32, color_type: ColorType, bytes_per_pixel: u32, data: Vec<u8>) -> Self {
         Self {
             width: width,
             height: height,
+            color_type: color_type,
             bytes_per_pixel: bytes_per_pixel,
             data: data,
         }
